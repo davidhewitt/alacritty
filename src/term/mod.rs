@@ -490,7 +490,7 @@ impl IndexMut<CharsetIndex> for Charsets {
 #[derive(Default, Copy, Clone)]
 pub struct Cursor {
     /// The location of this cursor
-    point: Point,
+    pub point: Point,
 
     /// Template cell when using this cursor
     template: Cell,
@@ -674,7 +674,10 @@ pub struct Term {
     semantic_escape_chars: String,
 
     /// Colors used for rendering
-    colors: color::List,
+    pub colors: color::List,
+
+    /// Original colors from config
+    original_colors: color::List,
 
     cursor_style: CursorStyle,
 }
@@ -774,6 +777,7 @@ impl Term {
             size_info: size,
             empty_cell: template,
             colors: color::List::from(config.colors()),
+            original_colors: color::List::from(config.colors()),
             semantic_escape_chars: config.selection().semantic_escape_chars.clone(),
             cursor_style: CursorStyle::Block,
         }
@@ -781,7 +785,7 @@ impl Term {
 
     pub fn update_config(&mut self, config: &Config) {
         self.semantic_escape_chars = config.selection().semantic_escape_chars.clone();
-        self.colors.fill_named(config.colors());
+        self.original_colors.fill_named(config.colors());
         self.visual_bell.update_config(config);
     }
 
@@ -1054,6 +1058,11 @@ impl Term {
         &self.mode
     }
 
+    #[inline]
+    pub fn cursor(&self) -> &Cursor {
+        &self.cursor
+    }
+
     pub fn swap_alt(&mut self) {
         if self.alt {
             let template = self.empty_cell;
@@ -1117,6 +1126,11 @@ impl Term {
         // Clear grid
         let template = self.empty_cell;
         self.grid.clear(|c| c.reset(&template));
+    }
+
+    #[inline]
+    pub fn background_color(&self) -> Rgb {
+        self.colors[NamedColor::Background]
     }
 }
 
@@ -1601,13 +1615,17 @@ impl ansi::Handler for Term {
     }
 
     /// Set the indexed color value
-    ///
-    /// TODO needs access to `Config`, and `Config` should not overwrite values
-    ///      when reloading
     #[inline]
     fn set_color(&mut self, index: usize, color: Rgb) {
         trace!("set_color[{}] = {:?}", index, color);
         self.colors[index] = color;
+    }
+
+    /// Reset the indexed color to original value
+    #[inline]
+    fn reset_color(&mut self, index: usize) {
+        trace!("reset_color[{}]", index);
+        self.colors[index] = self.original_colors[index];
     }
 
     #[inline]
@@ -1703,6 +1721,7 @@ impl ansi::Handler for Term {
             Attr::Reverse => self.cursor.template.flags.insert(cell::INVERSE),
             Attr::CancelReverse => self.cursor.template.flags.remove(cell::INVERSE),
             Attr::Bold => self.cursor.template.flags.insert(cell::BOLD),
+            Attr::CancelBold => self.cursor.template.flags.remove(cell::BOLD),
             Attr::Dim => self.cursor.template.flags.insert(cell::DIM),
             Attr::CancelBoldDim => self.cursor.template.flags.remove(cell::BOLD | cell::DIM),
             Attr::Italic => self.cursor.template.flags.insert(cell::ITALIC),

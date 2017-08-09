@@ -25,9 +25,6 @@ pub enum Error {
     /// Error creating the window
     ContextCreation(glutin::CreationError),
 
-    /// Error creating the window
-    ContextCreation(glutin::CreationError),
-
     /// Error manipulating the rendering context
     Context(glutin::ContextError),
 }
@@ -159,9 +156,6 @@ impl Display for Error {
             Error::ContextCreation(ref err) => {
                 write!(f, "Error creating GL context; {}", err)
             },
-            Error::ContextCreation(ref err) => {
-                write!(f, "Error creating GL context; {}", err)
-            },
             Error::Context(ref err) => {
                 write!(f, "Error operating on render context; {}", err)
             },
@@ -195,6 +189,8 @@ impl Window {
         title: &str
     ) -> Result<Window> {
         let event_loop = EventsLoop::new();
+
+        Window::platform_window_init();
         let window = WindowBuilder::new()
             .with_title(title);
         let context = ContextBuilder::new()
@@ -286,15 +282,47 @@ impl Window {
     pub fn set_cursor_visible(&mut self, visible: bool) {
         if visible != self.cursor_visible {
             self.cursor_visible = visible;
-            self.window.set_cursor_state(if visible {
+            if let Err(err) = self.window.set_cursor_state(if visible {
                 CursorState::Normal
             } else {
                 CursorState::Hide
-            }).unwrap();
+            }) {
+                warn!("Failed to set cursor visibility: {}", err);
+            }
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    pub fn platform_window_init() {
+        /// Set up env to make XIM work correctly
+        use x11_dl::xlib;
+        use libc::{setlocale, LC_CTYPE};
+        let xlib = xlib::Xlib::open().expect("get xlib");
+        unsafe {
+            /// Use empty c string to fallback to LC_CTYPE in environment variables
+            setlocale(LC_CTYPE, b"\0".as_ptr() as *const _);
+            /// Use empty c string for implementation dependent behavior,
+            /// which might be the XMODIFIERS set in env
+            (xlib.XSetLocaleModifiers)(b"\0".as_ptr() as *const _);
+        }
+    }
+
+    /// TODO: change this directive when adding functions for other platforms
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
+    pub fn platform_window_init() {
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
+    pub fn send_xim_spot(&self, x: i16, y: i16) {
+        use glutin::os::unix::WindowExt;
+        self.window.send_xim_spot(x, y);
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd")))]
+    pub fn send_xim_spot(&self, x: i16, y: i16) {
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd"))]
     pub fn get_window_id(&self) -> Option<usize> {
         use glutin::winit::os::unix::WindowExt;
 

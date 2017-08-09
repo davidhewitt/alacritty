@@ -36,10 +36,11 @@ built from source.
 ## Installation
 
 Instructions are provided for macOS and many Linux variants to compile Alacritty
-from source. With the exception of Arch (which has a package in the AUR), please
-first read the [prerequisites](#prerequisites) section, then find the section
-for your OS, and finally go to [building](#building) and
-[configuration](#configuration).
+from source. With the exception of Arch (which has a package in the AUR) and
+[NixOS](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/alacritty/default.nix)
+(at the moment in unstable, will be part of 17.09), please first read the
+[prerequisites](#prerequisites) section, then find the section for your OS, and
+finally go to [building](#building) and [configuration](#configuration).
 
 
 ### Arch Linux
@@ -49,6 +50,7 @@ git clone https://aur.archlinux.org/alacritty-git.git
 cd alacritty-git
 makepkg -isr
 ```
+
 
 ## Manual Installation
 
@@ -148,6 +150,14 @@ to be missing, please open an issue.
 sudo eopkg install freetype2-devel fontconfig-devel
 ```
 
+### NixOS/Nixpkgs
+
+The following command can be used to get a shell with all development dependencies on [NixOS](https://nixos.org).
+
+```
+nix-shell -A alacritty '<nixpkgs>'
+```
+
 #### Other
 
 If you build Alacritty on another distribution, we would love some help
@@ -174,6 +184,13 @@ system menus. To install the desktop entry for Alacritty, run
 ```sh
 sudo cp target/release/alacritty /usr/local/bin # or anywhere else in $PATH
 cp Alacritty.desktop ~/.local/share/applications
+```
+
+To build an application for macOS, run
+
+```sh
+make app
+cp -r target/release/osx/Alacritty.app /Applications/Alacritty.app
 ```
 
 ## Configuration
